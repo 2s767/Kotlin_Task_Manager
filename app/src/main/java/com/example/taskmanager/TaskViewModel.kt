@@ -1,28 +1,48 @@
 package com.example.taskmanager
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 class TaskViewModel : ViewModel() {
-    private val _tasks = MutableStateFlow(
-        listOf(Task("Kotlin o'rganish", true, 1),
-            Task("Swift o'rganish", false, 2),
-            Task("Rive o'rganish", false, 3),
-            Task("Backend ga kirish", false, 4),
-            Task("Software ingineer bo'lish", false, 5),
-        )
+
+    private val _state = MutableStateFlow<TaskListState>(
+        TaskListState.Loading
     )
+    val state : StateFlow<TaskListState>  = _state
 
-    val tasks : StateFlow<List<Task>>  = _tasks
+    init {
+        loadTask()
+    }
 
-    fun toggleTask(title: String, checked : Boolean){
-        _tasks.value = _tasks.value.map {
-            if(title == it.title) it.copy(isDone = checked) else it
+    private fun loadTask (){
+        viewModelScope.launch {
+            _state.value = TaskListState.Loading
+            delay(2000)
+//            _state.value = TaskListState.Error("Internet bilan ulanish yo'q")
+            _state.value = TaskListState.Success(
+               tasks =  listOf(Task( "1","Kotlin o'rganish", true, 1),
+                    Task("2","Swift o'rganish", false, 2),
+                    Task("3","Rive o'rganish", false, 3),
+                    Task("4","Backend ga kirish", false, 4),
+                    Task("5","Software ingineer bo'lish", false, 5),
+                )
+            )
+        }
+    }
+
+
+    fun toggleTask(id: String, checked : Boolean){
+        val current = _state.value
+
+        if(current is TaskListState.Success){
+            _state.value = current.copy(
+                tasks = current.tasks.map {
+                    if(it.id == id) it.copy(isDone = checked) else it
+                }
+            )
         }
     }
 }

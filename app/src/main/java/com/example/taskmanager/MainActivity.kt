@@ -4,17 +4,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,18 +37,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-data class Task(val title : String, val isDone : Boolean, val priority : Int)
+data class Task(val id : String, val title : String, val isDone : Boolean, val priority : Int)
 @Composable
 fun TaskListScreen(viewModel : TaskViewModel = viewModel())  {
-    val tasks by viewModel.tasks.collectAsState()
+        val state by viewModel.state.collectAsState()
 
-    LazyColumn {
-        items(tasks){ task ->
-            TaskItem(task, onToggle = {
-                checked -> viewModel.toggleTask(task.title,checked)
-            })
+        when(val s = state){
+            is TaskListState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                    ){
+                    CircularProgressIndicator()
+                }
+
+            }
+            is TaskListState.Success -> {
+                LazyColumn {
+                    items(s.tasks){
+                        task -> TaskItem(item = task, onToggle = {
+                            checked -> viewModel.toggleTask(task.id,checked)
+                        })
+                    }
+                }
+            }
+            is TaskListState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                    ){
+                    Text(text = "Xato : ${s.message}")
+                }
+            }
         }
-    }
+
 }
 @Composable
 fun TaskItem(item : Task,onToggle  : (Boolean) -> Unit){
