@@ -4,6 +4,7 @@ import android.widget.Toolbar
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
@@ -52,8 +54,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.taskmanager.ui.theme.TaskManagerTheme
-import org.w3c.dom.Text
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,23 +68,54 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TaskManagerTheme {
-                Scaffold(
-                    topBar = {AppBar()}
-                ) {
-                    innerPadding ->
-                    Box(modifier = Modifier.padding(innerPadding)){
-                        TaskListScreen()
+
+                val viewModel : TaskViewModel = viewModel()
+
+                val navController  = rememberNavController() // Navigatsiya holatini saqlash uchun ya'ni qaysi ekrandaligim yoki back stack qanday ekanligi haqida
+                // remember orqali recomposition da saqlanadi
+
+                NavHost(navController = navController, startDestination = "taskList"){
+
+
+                    // NavHost - bu router ya'ni route lar haqida to'liq qo'llanma. Ya'ni Bu loyihada shu route lar bor va manashunday ko'rinishda degandek .
+                    // startDestination ilova boshlanganda default ekran.
+
+                    composable("taskList") {
+
+
+                        Scaffold(topBar = {AppBar(viewModel)}) {
+                            innerPadding -> Box(modifier = Modifier.padding(innerPadding)){
+                                TaskListScreen(
+                                    viewModel = viewModel,
+                                    onTaskClick = { taskId ->
+                                        navController.navigate("taskDetail/$taskId")
+                                    }
+                                )
+                            }
+                        }
+
+
                     }
+
+                    composable("taskDetail/{taskId}") { backStackEntry ->
+                        val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
+
+                        TaskDetailScreen(taskId = taskId, viewModel, onBack = {navController.popBackStack()})
+
+                    }
+
                 }
             }
         }
     }
 }
 
-data class TaskModel(val title : String, val isDone : Boolean, val priority : Int)
+data class TaskModel(val id : String = UUID.randomUUID().toString(), val title : String, val isDone : Boolean, val priority : Int)
+
+data class User(val name : String, val email : String)
 
 @Composable
-fun TaskListScreen(viewModel: TaskViewModel = viewModel()) {
+fun TaskListScreen(viewModel: TaskViewModel = viewModel(), onTaskClick : (String) -> Unit) {
     val tasks = viewModel.tasks.collectAsState() // StateFlow ni Compose state ga aylantiradi . Kuzatishni boshlash uchun
 
     when(val s = tasks.value){
@@ -87,11 +125,23 @@ fun TaskListScreen(viewModel: TaskViewModel = viewModel()) {
             }
         }
         is TaskListState.SuccessState -> {
+            Column(
+                Modifier.fillMaxSize()
+            ) {
+                Text(
+                    text = "Salom ${s.user.name}",
+                    modifier = Modifier.padding(10.dp),
+                    fontSize = 18.sp
+                )
+                LazyColumn(Modifier.fillMaxSize()) {
+                    items(s.data){
+                            task -> Task(task, onPressed = { isChecked -> viewModel.isComplete(task,isChecked)
+                    } , onPressToDelete = { viewModel.deleteTask(taskToDelete = task) },
 
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(s.data){
-                        task -> Task(task, onPressed = { isChecked -> viewModel.isComplete(task,isChecked)
-                } , onPressToDelete = { viewModel.deleteTask(taskToDelete = task) })
+                        onClick = {onTaskClick(task.id)} // Shu yerdan ID ni berib yuboraman . NavHost ning composable orqali boshqa ekranga yonaltirish uchun
+
+                            )
+                    }
                 }
             }
         }
@@ -105,13 +155,11 @@ fun TaskListScreen(viewModel: TaskViewModel = viewModel()) {
     }
 }
 @Composable
-fun Task( task : TaskModel, onPressed : (Boolean) -> Unit, onPressToDelete : () -> Unit){
-
-
-    Box(modifier = Modifier.fillMaxSize().padding(12.dp)){
+fun Task( task : TaskModel, onPressed : (Boolean) -> Unit, onPressToDelete : () -> Unit, onClick : () -> Unit){
+    Box(modifier = Modifier.fillMaxWidth().padding(12.dp).clickable{onClick()}){
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize().padding(8.dp)) {
             Text(task.title)
-            Spacer(modifier = Modifier.padding(horizontal = 20.dp))
+
             IconButton(onClick = onPressToDelete, ) {
                 Icon(Icons.Filled.Delete,"Delete Button")
             }
@@ -121,7 +169,7 @@ fun Task( task : TaskModel, onPressed : (Boolean) -> Unit, onPressToDelete : () 
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppBar(viewModel: TaskViewModel = viewModel()) {
+fun AppBar(viewModel: TaskViewModel) {
     var showDialog by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
     TopAppBar(
@@ -131,6 +179,11 @@ fun AppBar(viewModel: TaskViewModel = viewModel()) {
                 showDialog = true
             }) {
                 Icon(Icons.Outlined.Add,"Plus button")
+            }
+            IconButton(onClick = {
+                viewModel.loadStates()
+            }) {
+                Icon(Icons.Default.Refresh,"Refresher")
             }
         },
         navigationIcon = {
