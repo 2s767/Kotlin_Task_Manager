@@ -93,17 +93,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-
-
                     }
-
                     composable("taskDetail/{taskId}") { backStackEntry ->
                         val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
 
                         TaskDetailScreen(taskId = taskId, viewModel, onBack = {navController.popBackStack()})
-
                     }
-
                 }
             }
         }
