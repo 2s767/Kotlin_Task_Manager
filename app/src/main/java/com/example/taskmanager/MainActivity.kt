@@ -14,13 +14,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.taskmanager.ui.theme.TaskManagerTheme
 
 class MainActivity : ComponentActivity() {
@@ -36,24 +35,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+
 data class Task(val title : String, val isDone : Boolean, val priority : Int)
+
+
 @Composable
-fun TaskListScreen() {
-    val tasks = listOf<Task>(Task("Kotlin o'rganish", true, 1),
-        Task("Swift o'rganish", false, 2),
-        Task("Rive o'rganish", false, 3),
-        Task("Backend ga kirish", false, 4),
-        Task("Software ingineer bo'lish", false, 5),
-        )
+fun TaskListScreen(viewModel : MainViewModel = viewModel()) {
+
+    val tasks by viewModel.tasks.collectAsState()
+
+
     LazyColumn {
         items(tasks){ task ->
-            TaskItem(task)
+            TaskItem(item = task, onToggle = {
+                checked -> viewModel.toggleButton(task.title, checked)
+            })
         }
     }
 }
+
+
 @Composable
-fun TaskItem(item : Task){
-    var isDone by remember { mutableStateOf(item.isDone) }
+fun TaskItem(item : Task, onToggle : (Boolean) -> Unit){
+
     Card (
         modifier =  Modifier.fillMaxWidth().padding(8.dp)
     ){
@@ -62,9 +67,8 @@ fun TaskItem(item : Task){
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = item.title, modifier = Modifier.padding(16.dp).background(Color.Yellow))
-            Checkbox(checked = isDone, onCheckedChange = {
-                isDone = it
-            })
+            Checkbox(checked = item.isDone, onCheckedChange = onToggle)
         }
     }
 }
+
